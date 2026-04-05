@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "forge"
+version = "0.1.0"
+description = "Generic LLM fine-tuning framework with YAML-driven task configuration"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "datasets>=3.0.0",
+    "loguru>=0.7.3",
+    "mlflow>=2.0.0",
+    "psutil>=7.0.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "rich>=13.7.0",
+    "typer>=0.12.0",
+]
+
+[project.optional-dependencies]
+training = [
+    "accelerate",
+    "bitsandbytes>=0.48.0",
+    "peft>=0.18.0",
+    "torch>=2.0.0",
+    "trl",
+    "unsloth",
+]
+hub = [
+    "huggingface-hub>=0.25.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "ruff>=0.14.0",
+]
+
+[project.scripts]
+forge = "forge.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/forge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = ["-v", "--strict-markers", "--cov=forge", "--cov-report=term-missing"]
+
+[tool.ruff]
+line-length = 150
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "S", "UP", "PTH", "RUF", "C4", "PT", "BLE", "LOG", "G", "T10", "SIM", "PIE", "N", "PERF"]
+ignore = ["S101", "S104", "S603", "S607", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "PLR2004", "PTH123"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true

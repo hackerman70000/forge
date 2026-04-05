@@ -1,0 +1,23 @@
+training:
+  load_in_4bit: true
+  gradient_checkpointing: unsloth
+  lora:
+    r: 32
+    alpha: 64
+    dropout: 0.05
+    use_rslora: true
+  epochs: 3
+  batch_size: 2
+  gradient_accumulation_steps: 16
+  learning_rate: 2e-4
+  warmup_steps: 100
+  weight_decay: 0.01
+  max_seq_length: 2048
+  optimizer: adamw_torch_fused
+  lr_scheduler: linear
+  save_steps: 100
+  eval_steps: 50
+  early_stopping_patience: 3
+
+export:
+  lora: true

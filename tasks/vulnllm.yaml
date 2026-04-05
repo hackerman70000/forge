@@ -1,0 +1,34 @@
+inherits: base.yaml
+
+task:
+  name: vulnllm-detection
+  type: classification
+
+data:
+  format: hf_dataset
+  source: UCSB-SURFI/VulnLLM-R-Train-Data
+  input_columns:
+    - code
+    - language
+  target_column: target
+  labels:
+    "0": not_vulnerable
+    "1": vulnerable
+  split_column: split
+  split: function_level
+  test_size: 0.1
+
+prompt:
+  system: |
+    You are a security code reviewer. Analyze source code and determine whether it contains a security vulnerability.
+    Respond with exactly one word: vulnerable or not_vulnerable.
+  template: |
+    Analyze this {language} function and determine if it contains a security vulnerability.
+
+    ```
+    {code}
+    ```
+
+training:
+  model: unsloth/Llama-3.3-70B-Instruct-bnb-4bit
+  epochs: 3
