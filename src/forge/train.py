@@ -168,12 +168,17 @@ class Trainer:
         _log_memory(f"before_format_{label}")
         logger.info(f"Formatting {len(dataset)} {label} samples")
 
+        template_kwargs = {}
+        if not self.config.prompt.enable_thinking:
+            template_kwargs["enable_thinking"] = False
+
         texts = []
         for i, example in enumerate(dataset):
             text = self.tokenizer.apply_chat_template(
                 example["messages"],
                 tokenize=False,
                 add_generation_prompt=False,
+                **template_kwargs,
             )
             texts.append(text)
             if (i + 1) % 1000 == 0:

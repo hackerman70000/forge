@@ -7,13 +7,10 @@ from loguru import logger
 from forge.config import TaskConfig
 
 
-def _load_raw_dataset(config: TaskConfig) -> Dataset:
-    source = config.data.source
-    fmt = config.data.format
-
+def _load_single_dataset(source: str, fmt: str, split: str | None) -> Dataset:
     if fmt == "hf_dataset":
         logger.info(f"Loading dataset from HuggingFace Hub: {source}")
-        ds = load_dataset(source, split=config.data.split or "train", keep_in_memory=False)
+        ds = load_dataset(source, split=split or "train", keep_in_memory=False)
     elif fmt == "jsonl":
         logger.info(f"Loading JSONL from: {source}")
         ds = load_dataset("json", data_files=source, split="train", keep_in_memory=False)
@@ -118,19 +115,27 @@ def convert_to_chat_format(dataset: Dataset, config: TaskConfig) -> Dataset:
     )
 
 
-def load_dataset_from_config(config: TaskConfig) -> tuple[Dataset, Dataset]:
-    raw = _load_raw_dataset(config)
+def _prepare_dataset(config: TaskConfig, source: str, split_override: str | None = None) -> Dataset:
+    raw = _load_single_dataset(source, config.data.format, split_override or config.data.split)
     raw = _filter_by_split(raw, config)
     raw = _balance_by_label(raw, config)
+    return convert_to_chat_format(raw, config)
 
-    chat_ds = convert_to_chat_format(raw, config)
-    chat_ds = chat_ds.shuffle(seed=config.data.seed, keep_in_memory=False)
 
-    split = chat_ds.train_test_split(
-        test_size=config.data.test_size,
-        seed=config.data.seed,
-        keep_in_memory=False,
-    )
+def load_dataset_from_config(config: TaskConfig) -> tuple[Dataset, Dataset]:
+    train_ds = _prepare_dataset(config, config.data.source)
+    train_ds = train_ds.shuffle(seed=config.data.seed, keep_in_memory=False)
 
-    logger.info(f"Train: {len(split['train'])}, Eval: {len(split['test'])}")
-    return split["train"], split["test"]
+    if config.data.eval_source:
+        eval_ds = _prepare_dataset(config, config.data.eval_source, config.data.eval_split)
+        logger.info(f"Train: {len(train_ds)}, Eval: {len(eval_ds)} (separate dataset)")
+    else:
+        split = train_ds.train_test_split(
+            test_size=config.data.test_size,
+            seed=config.data.seed,
+            keep_in_memory=False,
+        )
+        train_ds, eval_ds = split["train"], split["test"]
+        logger.info(f"Train: {len(train_ds)}, Eval: {len(eval_ds)} (auto-split)")
+
+    return train_ds, eval_ds

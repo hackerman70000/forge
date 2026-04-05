@@ -13,6 +13,8 @@ class TaskSection(BaseModel):
 class DataSection(BaseModel):
     format: Literal["parquet", "jsonl", "csv", "hf_dataset"] = "hf_dataset"
     source: str
+    eval_source: str | None = None
+    eval_split: str | None = None
     input_columns: list[str] = Field(default_factory=lambda: ["input"])
     target_column: str = "target"
     labels: dict[str, str] | None = None
@@ -42,6 +44,7 @@ class PromptSection(BaseModel):
     system: str = ""
     template: str = "{input}"
     response_template: str | None = None
+    enable_thinking: bool = True
 
 
 class LoRASection(BaseModel):

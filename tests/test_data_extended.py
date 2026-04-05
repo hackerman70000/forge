@@ -10,7 +10,7 @@ from forge.data import (
     _balance_by_label,
     _build_messages,
     _filter_by_split,
-    _load_raw_dataset,
+    _load_single_dataset,
     convert_to_chat_format,
     load_dataset_from_config,
 )
@@ -53,11 +53,7 @@ class TestLoadRawDataset:
             for r in records:
                 f.write(json.dumps(r) + "\n")
 
-        config = TaskConfig(
-            task={"name": "test"},
-            data={"source": str(jsonl_file), "format": "jsonl"},
-        )
-        ds = _load_raw_dataset(config)
+        ds = _load_single_dataset(str(jsonl_file), "jsonl", None)
         assert len(ds) == 5
         assert "text" in ds.column_names
         assert "label" in ds.column_names
@@ -70,11 +66,7 @@ class TestLoadRawDataset:
             for i in range(4):
                 writer.writerow([f"text {i}", i % 2])
 
-        config = TaskConfig(
-            task={"name": "test"},
-            data={"source": str(csv_file), "format": "csv"},
-        )
-        ds = _load_raw_dataset(config)
+        ds = _load_single_dataset(str(csv_file), "csv", None)
         assert len(ds) == 4
         assert "text" in ds.column_names
 
@@ -84,31 +76,22 @@ class TestLoadRawDataset:
         ds = Dataset.from_dict({"text": ["a", "b", "c"], "label": [0, 1, 0]})
         ds.to_parquet(str(parquet_file))
 
-        config = TaskConfig(
-            task={"name": "test"},
-            data={"source": str(parquet_file), "format": "parquet"},
-        )
-        loaded = _load_raw_dataset(config)
+        loaded = _load_single_dataset(str(parquet_file), "parquet", None)
         assert len(loaded) == 3
 
-    def test_load_hf_dataset_mocked(self, basic_config):
+    def test_load_hf_dataset_mocked(self):
         mock_ds = Dataset.from_dict({"text": ["a", "b"], "label": [0, 1]})
-        basic_config.data.format = "hf_dataset"
-        basic_config.data.source = "some/dataset"
 
         with patch("forge.data.load_dataset", return_value=mock_ds) as mock_load:
-            result = _load_raw_dataset(basic_config)
+            result = _load_single_dataset("some/dataset", "hf_dataset", None)
             mock_load.assert_called_once_with("some/dataset", split="train", keep_in_memory=False)
             assert len(result) == 2
 
-    def test_load_hf_dataset_with_split(self, basic_config):
+    def test_load_hf_dataset_with_split(self):
         mock_ds = Dataset.from_dict({"text": ["a"], "label": [0]})
-        basic_config.data.format = "hf_dataset"
-        basic_config.data.source = "some/dataset"
-        basic_config.data.split = "validation"
 
         with patch("forge.data.load_dataset", return_value=mock_ds) as mock_load:
-            _load_raw_dataset(basic_config)
+            _load_single_dataset("some/dataset", "hf_dataset", "validation")
             mock_load.assert_called_once_with("some/dataset", split="validation", keep_in_memory=False)
 
 
