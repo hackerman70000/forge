@@ -55,6 +55,8 @@ task:
 data:
   format: hf_dataset # hf_dataset | parquet | jsonl | csv
   source: UCSB-SURFI/VulnLLM-R-Train-Data
+  eval_source: UCSB-SURFI/VulnLLM-R-Test-Data  # separate eval dataset (optional)
+  eval_split: function_level  # HF split for eval dataset (optional)
   input_columns: # columns used in prompt template
     - code
     - language
@@ -77,6 +79,7 @@ prompt:
     ```
     {code}
     ```
+  enable_thinking: false  # disable <think> tags for models like Qwen3.5 (default: true)
 
 training:
   model: unsloth/Llama-3.3-70B-Instruct-bnb-4bit
@@ -189,6 +192,19 @@ data:
   source: data/training.parquet
 ```
 
+### Separate Eval Dataset
+
+By default, forge auto-splits the training data into train/eval using `test_size`. To use a dedicated eval dataset instead:
+
+```yaml
+data:
+  source: UCSB-SURFI/VulnLLM-R-Train-Data
+  eval_source: UCSB-SURFI/VulnLLM-R-Test-Data
+  eval_split: function_level  # optional: HF split for eval dataset
+```
+
+When `eval_source` is set, `test_size` is ignored.
+
 ### Auto-Conversion to Chat Format
 
 Forge converts raw data into chat messages using your prompt template:
@@ -276,6 +292,32 @@ Options:
 ```
 
 The base model is auto-detected from `adapter_config.json`. If a 4-bit quantized model is detected, the FP16 variant is used instead.
+
+### Thinking Mode
+
+Models like Qwen3.5 generate `<think>...</think>` reasoning tags by default. For simple classification tasks this is unnecessary overhead. Disable it in the prompt section:
+
+```yaml
+prompt:
+  enable_thinking: false
+```
+
+## Dev Tasks (Invoke)
+
+```bash
+inv setup              # install all deps (training + hub + dev)
+inv setup --cpu        # install dev deps only (no GPU)
+inv test               # run test suite
+inv test --cov         # with coverage report
+inv test --html        # with HTML coverage
+inv test -k "config"   # filter by pattern
+inv lint               # ruff check
+inv lint --fix         # auto-fix
+inv format             # ruff format
+inv format --check     # check only
+inv check              # lint + format + test (all-in-one)
+inv validate <config>  # validate and print resolved config
+```
 
 ## Experiment Tracking
 
