@@ -4,9 +4,6 @@ import os
 from pathlib import Path
 from typing import ClassVar
 
-with contextlib.suppress(ImportError):
-    import unsloth  # noqa: F401
-
 from loguru import logger
 
 from forge.config import TaskConfig

@@ -474,6 +474,24 @@ class TestTrainerFormatDataset:
             enable_thinking=False,
         )
 
+    def test_format_dataset_handles_empty_dataset(self, basic_config, monkeypatch):
+        mock_unsloth = types.ModuleType("unsloth")
+        monkeypatch.setitem(sys.modules, "unsloth", mock_unsloth)
+
+        from forge.train import Trainer
+
+        trainer = Trainer(basic_config)
+        trainer.tokenizer = MagicMock()
+
+        dataset = Dataset.from_dict({"messages": []})
+
+        with patch("forge.train._log_memory"), patch("forge.train._cleanup_memory"):
+            result = trainer._format_dataset(dataset, "train")
+
+        assert result.column_names == ["text"]
+        assert result["text"] == []
+        trainer.tokenizer.apply_chat_template.assert_not_called()
+
     def test_setup_no_division_by_zero_when_zero_params(self, basic_config):
         mock_unsloth = types.ModuleType("unsloth")
         mock_flm_class = MagicMock()
