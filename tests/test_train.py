@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from datasets import Dataset
 
 from forge.config import TaskConfig
 
@@ -412,6 +413,84 @@ class TestTrainerSetupMocked:
             mock_flm_class.get_peft_model.assert_called_once()
             assert trainer.model is mock_model
             assert trainer.tokenizer is mock_tokenizer
+
+
+class TestTrainerFormatDataset:
+    def test_format_dataset_returns_text_dataset(self, basic_config, monkeypatch):
+        mock_unsloth = types.ModuleType("unsloth")
+        monkeypatch.setitem(sys.modules, "unsloth", mock_unsloth)
+
+        from forge.train import Trainer
+
+        trainer = Trainer(basic_config)
+        trainer.tokenizer = MagicMock()
+        trainer.tokenizer.apply_chat_template.side_effect = [
+            "formatted-a",
+            "formatted-b",
+        ]
+
+        dataset = Dataset.from_dict(
+            {
+                "messages": [
+                    [{"role": "user", "content": "a"}, {"role": "assistant", "content": "x"}],
+                    [{"role": "user", "content": "b"}, {"role": "assistant", "content": "y"}],
+                ]
+            }
+        )
+
+        with patch("forge.train._log_memory"), patch("forge.train._cleanup_memory"):
+            result = trainer._format_dataset(dataset, "train")
+
+        assert result.column_names == ["text"]
+        assert result["text"] == ["formatted-a", "formatted-b"]
+        assert trainer.tokenizer.apply_chat_template.call_count == 2
+
+    def test_format_dataset_disables_thinking_when_configured(self, basic_config, monkeypatch):
+        mock_unsloth = types.ModuleType("unsloth")
+        monkeypatch.setitem(sys.modules, "unsloth", mock_unsloth)
+
+        from forge.train import Trainer
+
+        basic_config.prompt.enable_thinking = False
+        trainer = Trainer(basic_config)
+        trainer.tokenizer = MagicMock()
+        trainer.tokenizer.apply_chat_template.return_value = "formatted"
+
+        dataset = Dataset.from_dict(
+            {
+                "messages": [
+                    [{"role": "user", "content": "a"}, {"role": "assistant", "content": "x"}],
+                ]
+            }
+        )
+
+        with patch("forge.train._log_memory"), patch("forge.train._cleanup_memory"):
+            trainer._format_dataset(dataset, "train")
+
+        trainer.tokenizer.apply_chat_template.assert_called_once_with(
+            dataset[0]["messages"],
+            tokenize=False,
+            add_generation_prompt=False,
+            enable_thinking=False,
+        )
+
+    def test_format_dataset_handles_empty_dataset(self, basic_config, monkeypatch):
+        mock_unsloth = types.ModuleType("unsloth")
+        monkeypatch.setitem(sys.modules, "unsloth", mock_unsloth)
+
+        from forge.train import Trainer
+
+        trainer = Trainer(basic_config)
+        trainer.tokenizer = MagicMock()
+
+        dataset = Dataset.from_dict({"messages": []})
+
+        with patch("forge.train._log_memory"), patch("forge.train._cleanup_memory"):
+            result = trainer._format_dataset(dataset, "train")
+
+        assert result.column_names == ["text"]
+        assert result["text"] == []
+        trainer.tokenizer.apply_chat_template.assert_not_called()
 
     def test_setup_no_division_by_zero_when_zero_params(self, basic_config):
         mock_unsloth = types.ModuleType("unsloth")
