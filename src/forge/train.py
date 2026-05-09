@@ -163,8 +163,6 @@ class Trainer:
         return output
 
     def _format_dataset(self, dataset, label: str):
-        from datasets import Dataset as HFDataset
-
         _log_memory(f"before_format_{label}")
         logger.info(f"Formatting {len(dataset)} {label} samples")
 
@@ -172,20 +170,40 @@ class Trainer:
         if not self.config.prompt.enable_thinking:
             template_kwargs["enable_thinking"] = False
 
-        texts = []
-        for i, example in enumerate(dataset):
-            text = self.tokenizer.apply_chat_template(
-                example["messages"],
-                tokenize=False,
-                add_generation_prompt=False,
-                **template_kwargs,
-            )
-            texts.append(text)
-            if (i + 1) % 1000 == 0:
-                logger.info(f"  Formatted {i + 1}/{len(dataset)} {label} samples")
+        if len(dataset) == 0:
+            result = dataset.remove_columns(dataset.column_names)
+            result = result.add_column("text", [])
+            _cleanup_memory()
+            _log_memory(f"after_format_{label}")
+            return result
 
-        result = HFDataset.from_dict({"text": texts})
-        del texts
+        total = len(dataset)
+        progress = {"count": 0}
+
+        def _format_batch(batch: dict) -> dict:
+            texts = []
+            for messages in batch["messages"]:
+                text = self.tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=False,
+                    **template_kwargs,
+                )
+                texts.append(text)
+
+            progress["count"] += len(texts)
+            if progress["count"] % 1000 == 0 or progress["count"] == total:
+                logger.info(f"  Formatted {progress['count']}/{total} {label} samples")
+
+            return {"text": texts}
+
+        result = dataset.map(
+            _format_batch,
+            batched=True,
+            batch_size=256,
+            remove_columns=dataset.column_names,
+            desc=f"Formatting {label} dataset",
+        )
         _cleanup_memory()
         _log_memory(f"after_format_{label}")
         return result
